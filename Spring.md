@@ -931,3 +931,321 @@ xml用来管理bean
 
 注解只负责完成属性的注入
 
+
+
+
+
+## 使用Java的方式配置Spring
+
+
+
+现在要完全不使用Spring的xml配置了，全权交给java来做
+
+javaConfig是Spring的一个子项目，在Spring4之后，它成为了一个核心功能
+
+
+
+![image-20230328121311039](Spring.assets/image-20230328121311039.png)
+
+
+
+实体类
+
+```java
+//这里这个注解的意思，就是说明这个类被Springg接管了，注册到了容器中
+@Component
+public class User {
+    private String name;
+
+
+    public String getName() {
+        return name;
+    }
+    @Value("lk")  //属性注入值
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    @Override
+    public String toString() {
+        return "User{" +
+                "name='" + name + '\'' +
+                '}';
+    }
+}
+```
+
+
+
+```java
+@Configuration
+//这个也会Spring容器托管，注册到容器中，因为他本来就是一个@Component, @Configuration 代表这是一个配置类，就和我们之前看的 beans.xml
+
+@ComponentScan("com.lk.pojo")
+@Import(LiConfig2.class)  //相当于将 2  的配置和1合并
+public class LiConfig {
+    //注册一个bean,相当于我们之前写的一个bean标签
+    //这个方法的名字，就相当于bean标签的id属性
+    //这个方法的返回值，就相当于bean标签中的class属性
+
+    @Bean
+    public User getUser(){
+        return new User();  //就是返回要注入到bean的对象
+    }
+}
+
+```
+
+测试类
+
+```java
+public class MyTest {
+    public static void main(String[] args) {
+        //如果完全使用了配置类方式去做，我们就只能通过 AnnotationConfig 上下文来获取容器，通过配置类的class对象加载
+        ApplicationContext context = new AnnotationConfigApplicationContext(LiConfig.class);
+        User user = (User) context.getBean("getUser");
+
+        System.out.println(user.getName());
+    }
+}
+```
+
+这种纯java的配置方式，在SpringBoot中随处可见
+
+
+
+
+
+## 代理模式
+
+代理模式就是SpringAOP的底层
+
+![image-20230328160118179](Spring.assets/image-20230328160118179.png)
+
+优点：代理可以使真实角色的操作更加纯粹，不用取关注一些公共的业务
+
+​			公共业务就交给代理，实现了业务分工
+
+​			公共业务发生扩展的时候，方便集中管理
+
+
+
+缺点： 一个真实角色就会产生一个代理角色，代码量翻倍，开发效率变低
+
+
+
+分类：
+
++ 静态代理
++ 动态代理
+
+### 静态代理
+
+
+
+角色分析：
+
++ 抽象角色：一般会使用接口或者抽象类来解决
++ 真实角色：被代理的角色
++ 代理角色：代理真实角色，代理真实角色后，会做一些附属操作
++ 客户：访问代理对象的人
+
+
+
+
+
+代码：
+
+1. 接口
+
+```java
+public interface Rent {
+    //租房
+        public void rent();
+}
+```
+
+​	2. 真实角色
+
+```java
+//房东
+public class Host implements Rent{
+    public void rent(){
+        System.out.println("房东出租房子");
+    }
+}
+```
+
+3 . 代理角色
+
+```java
+public class Proxy implements Rent{
+    private Host host;
+
+    public Proxy() {
+    }
+
+    public Proxy(Host host) {
+        this.host = host;
+    }
+
+    @Override
+    public void rent() {
+        host.rent();
+    }
+
+    //看房
+    public void seeHouse(){
+        System.out.println("中介带你取看房");
+    }
+
+    //收中介费
+    public void fare(){
+        System.out.println("收中介费");
+    }
+
+    //签合同
+    public void hetong(){
+        System.out.println("签合同");
+    }
+}
+```
+
+4 . 客户端访问代理角色
+
+```java
+public class Client {
+    public static void main(String[] args) {
+        //房东要租房子
+        Host host = new Host();
+
+        //代理，中介帮房东租房子，也会有一些附属操作
+        Proxy proxy = new Proxy(host);
+        //不用面对房东，直接找中介租房子
+        proxy.rent();
+        proxy.seeHouse();
+        proxy.fare();
+        proxy.hetong();
+    }
+}
+```
+
+
+
+
+
+![image-20230328164909410](Spring.assets/image-20230328164909410.png)
+
+
+
+### 动态代理
+
+底层是反射，解决每次引入代理代码量翻倍的问题
+
+动态代理和静态代理角色一样，动态代理的类是动态生成的，不是我们直接写好的。
+
+动态代理分为两大类：基于接口的动态代理，基于类的动态代理
+
++ 基于接口： -- jdk动态代理
++ 基于类： cglib
++ java字节码实现 javassist
+
+
+
+
+
+需要了解两个类：proxy（代理） InvocationHandler（调用处理程序）
+
+
+
+ **InvocationHandler**
+
+反射包下的接口
+
+InvocationHandler是由代理实例的*调用处理程序*实现的*接口*
+
+每个代理实例都有一个关联的调用处理程序
+
+当在代理实例上调用方法时，方法调用将被编码并分派到其调用处理程序的`invoke`方法。 
+
+![image-20230328165814621](Spring.assets/image-20230328165814621.png)
+
+![image-20230328165829540](Spring.assets/image-20230328165829540.png)
+
+
+
+
+
+**Proxy**
+
+Proxy提供了创建动态代理类和实例的静态方法，它也是由这些方法创建的所有动态代理类的超类。
+
+![image-20230328165948930](Spring.assets/image-20230328165948930.png)
+
+![image-20230328170106583](Spring.assets/image-20230328170106583.png)
+
+
+
+```java
+//等会用这个类，自动生成代理类
+public class ProxyInvocationHandler implements InvocationHandler {
+
+//    Foo f = (Foo) Proxy.newProxyInstance(Foo.class.getClassLoader(),
+//            new Class<?>[] { Foo.class },
+//            handler);
+
+    //被代理的接口
+    private Object target;
+    public void setTarget(Object target){
+        this.target = target;
+    }
+
+    //得到代理类
+    public Object getProxy(){
+        return Proxy.newProxyInstance(this.getClass().getClassLoader(),target.getClass().getInterfaces(),this);
+    }
+    //处理代理实例，并返回
+    @Override
+    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+        //动态代理的本质，就是使用反射机制实现
+        log(method.getName());
+        Object result = method.invoke(target, args);
+        return result;
+    }
+//代理中添加执行一个日志方法
+    public void log(String msg){
+        System.out.println("执行了"+msg+"方法");
+
+    }
+}
+```
+
+
+
+
+
+```java
+public class Client {
+    public static void main(String[] args) {
+        //真实角色
+        UserServiceImpl userService = new UserServiceImpl();
+
+        //代理角色，还不存在
+        ProxyInvocationHandler pih = new ProxyInvocationHandler();
+
+        pih.setTarget(userService);  //设置要代理的对象
+
+        //动态生成代理类
+        UserService proxy = (UserService) pih.getProxy();
+
+        proxy.delete();
+
+    }
+}
+```
+
+
+
+动态代理的好处：一个动态代理类代理的是一个接口，一般就是对应的一类业务
+
+​								一个动态代理类可以代理多个类，只要是实现了同一个接口即可
