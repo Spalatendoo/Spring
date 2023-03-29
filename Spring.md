@@ -1249,3 +1249,388 @@ public class Client {
 动态代理的好处：一个动态代理类代理的是一个接口，一般就是对应的一类业务
 
 ​								一个动态代理类可以代理多个类，只要是实现了同一个接口即可
+
+
+
+
+
+## AOP
+
+
+
+AOP为Aspect Oriented Programming的缩写，意为：面向切面编程，通过预编译方式和运行期间动态代理实现程序功能的统一维护的一种技术。AOP是[OOP](https://baike.baidu.com/item/OOP/1152915?fromModule=lemma_inlink)的延续，是[软件开发](https://baike.baidu.com/item/软件开发/3448966?fromModule=lemma_inlink)中的一个热点，也是[Spring](https://baike.baidu.com/item/Spring?fromModule=lemma_inlink)框架中的一个重要内容，是[函数式编程](https://baike.baidu.com/item/函数式编程/4035031?fromModule=lemma_inlink)的一种衍生范型。利用AOP可以对[业务逻辑](https://baike.baidu.com/item/业务逻辑/3159866?fromModule=lemma_inlink)的各个部分进行隔离，从而使得业务逻辑各部分之间的[耦合度](https://baike.baidu.com/item/耦合度/2603938?fromModule=lemma_inlink)降低，提高程序的[可重用性](https://baike.baidu.com/item/可重用性/53650612?fromModule=lemma_inlink)，同时提高了开发的效率。
+
+
+
+![image-20230328184657797](Spring.assets/image-20230328184657797.png)
+
+作用：在程序运行期间，在不修改源码的情况下对方法进行功能增强
+
+优势：减少重复代码，提高开发效率，并且便于维护
+
+
+
+### AOP在Spring中的作用
+
+实际上，AOP 的底层是通过 Spring 提供的的动态代理技术实现的。在运行期间，Spring通过动态代理技术动态的生成代理对象，代理对象方法执行时进行增强功能的介入，在去调用目标对象的方法，从而完成功能的增强。
+
+==提供声明式事务，允许用户自定义切面==
+
++ 横切关注点：跨越应用程序多个模块的方法或功能。即是，与我们业务逻辑无关的，但是我们需要关注的部分，就是横切关注点。如日志，安全，缓存，事务等等…
++ 切面（ASPECT）：横切关注点被模块化的特殊对象。即，它是一个类。
++ 通知（Advice）：切面必须要完成的工作。即，它是类中的一个方法。
++ 目标（Target）：被通知对象。
++ 代理（Proxy）：向目标对象应用通知之后创建的对象。
++ 切入点（PointCut）：切面通知执行的“地点”的定义。
++ 连接点（JointPoint）：与切入点匹配的执行点
+  
+
+![image-20230328185257828](Spring.assets/image-20230328185257828.png)
+
+
+
+
+
+SpringAOP中，通过Advice定义横切逻辑，Spring中支持5中类型的Advice
+
+
+
+![image-20230328185421694](Spring.assets/image-20230328185421694.png)
+
+
+
+即AOP在不改变原有代码情况下，去增加新的功能
+
+
+
+
+
+### 使用Spring实现AOP
+
+使用AOP注入，需要先导入依赖包
+
+```xml
+        <!-- https://mvnrepository.com/artifact/org.aspectj/aspectjweaver -->
+        <dependency>
+            <groupId>org.aspectj</groupId>
+            <artifactId>aspectjweaver</artifactId>
+            <version>1.9.4</version>
+            <scope>runtime</scope>
+        </dependency>
+```
+
+
+
+#### **方式一   使用Spring的API接口**
+
+==【主要SpringAPI接口实现】==
+
+beans.xml配置文件
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+       https://www.springframework.org/schema/beans/spring-beans.xsd
+       http://www.springframework.org/schema/aop
+        https://www.springframework.org/schema/aop/spring-aop.xsd">
+<!--注册bean-->
+    <bean id="userservice" class="com.lk.service.UserServiceImpl"/>
+    <bean id="log" class="com.lk.log.Log"/>
+    <bean id="afterlog" class="com.lk.log.AfterLog"/>
+
+    <!--方式一： 使用原生Spring API接口-->
+    <!--配置aop：需要导入aop的约束-->
+    <aop:config>
+        <!--切入点:expression_表达式  execution(要执行的位置！ * * * * *)-->
+        <aop:pointcut id="pointcut" expression="execution(* com.lk.service.UserServiceImpl.*(..))"/>
+
+        <!--执行环绕增加-->
+        <aop:advisor advice-ref="log" pointcut-ref="pointcut"/>
+        <aop:advisor advice-ref="afterlog" pointcut-ref="pointcut"/>
+    </aop:config>
+
+
+
+</beans>
+```
+
+
+
+测试类
+
+```java
+public class MyTest {
+    public static void main(String[] args) {
+        ApplicationContext context = new ClassPathXmlApplicationContext("applicationContex.xml");
+        //动态代理代理的式接口 注意点， 用UserServiceImpl实现类就不可以
+        UserService userservice = context.getBean("userservice", UserService.class);
+
+        userservice.add();
+    }
+}
+```
+
+#### 方式二 自定义类实现AOP
+
+==【主要是切面】==
+
+自定义类
+
+```java
+public class DiyPointCut {
+
+    public void before(){
+        System.out.println("=========方法执行前========");
+    }
+
+    public void after(){
+        System.out.println("=========方法执行后========");
+    }
+
+}
+```
+
+xml配置
+
+```xml
+    <bean id="diy" class="com.lk.diy.DiyPointCut"/>
+
+    <aop:config>
+        <!--自定义切面，ref，要引用的类-->
+        <aop:aspect ref="diy">
+            <!--切入点-->
+            <aop:pointcut id="point" expression="execution(* com.lk.service.UserServiceImpl.*(..))"/>
+            <!--通知-->
+            <aop:before method="before" pointcut-ref="point"/>
+            <aop:after method="after" pointcut-ref="point"/>
+        </aop:aspect>
+    </aop:config>
+```
+
+
+
+测试
+
+<img src="Spring.assets/image-20230328194223815.png" alt="image-20230328194223815"  />
+
+
+
+
+
+#### 方式三 使用注解实现
+
+在java代码中使用注解实现AOP
+
+```java
+@Aspect  //标注这个类是一个切面
+public class AnnotationPointCut {
+    @Before("execution(* com.lk.service.UserServiceImpl.*(..))")
+    public void before(){
+        System.out.println("=========方法执行前========");
+    }
+    @After("execution(* com.lk.service.UserServiceImpl.*(..))")
+    public void after(){
+        System.out.println("=========方法执行后========");
+    }
+
+    //在环绕增强中，我们可以给定一个参数，代表我们要获取处理切入的点
+    @Around("execution(* com.lk.service.UserServiceImpl.*(..))")
+    public void around(ProceedingJoinPoint jp) throws Throwable {
+        System.out.println("环绕前");
+
+        Signature signature = jp.getSignature(); //获得签名
+        System.out.println("signature" + signature);
+
+        //执行方法
+        Object proceed = jp.proceed();
+
+        System.out.println("环绕后");
+        System.out.println(proceed);
+
+    }
+
+}
+```
+
+
+
+
+
+
+
+## Mybatis-Spring
+
+
+
+1. 编写数据源配置
+
+   
+
+2. sqlSessionFactory
+
+   
+
+3. sqlSessionTemplate
+
+   
+
+4. 给接口加实现类
+
+   
+
+5. 将自己写的实现类，注入到Spring中
+
+6. 
+
+```java
+public interface UserMapper {
+
+    List<User> selectUser();
+}
+
+```
+
+
+
+```java
+public class UsermapperImpl implements UserMapper{
+    //我们的所有操作 都使用sqlSession来执行，在原来，现在都使用sqlSessionTemplate
+    private SqlSessionTemplate sqlSession;
+
+    public void setSqlSession(SqlSessionTemplate sqlSession) {
+        this.sqlSession = sqlSession;
+    }
+
+    @Override
+    public List<User> selectUser() {
+        UserMapper mapper = sqlSession.getMapper(UserMapper.class);
+        return mapper.selectUser();
+
+    }
+}
+```
+
+```xml
+<import resource="spring-dao.xml"/>
+
+<bean id="userMapper" class="com.lk.mapper.UsermapperImpl">
+    <property name="sqlSession" ref="sqlSession"/>
+</bean>
+
+<bean id="userMapper2" class="com.lk.mapper.UserMapperImpl2">
+    <property name="sqlSessionFactory" ref="sqlSessionFactory"/>
+</bean>
+```
+
+```xml
+<mapper namespace="com.lk.mapper.UserMapper">
+
+    <select id="selectUser" resultType="user">
+        select * from mybatis.user
+    </select>
+
+
+</mapper>
+```
+
+```xml
+    <bean id="datasource" class="org.springframework.jdbc.datasource.DriverManagerDataSource">
+        <property name="driverClassName" value="com.mysql.jdbc.Driver"/>
+        <property name="url" value="jdbc:mysql://localhost:3306/mybatis?useSSL=false&amp;useUnicode=true"/>
+        <property name="username" value="root"/>
+        <property name="password" value="root"/>
+    </bean>
+
+    <!--sqlSessionFactory-->
+    <bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <property name="dataSource" ref="datasource" />
+        <!--绑定Mybatis配置文件-->
+        <property name="configLocation" value="classpath:mybatis-config.xml"/>
+        <property name="mapperLocations" value="classpath:com/lk/mapper/UserMapper.xml"/>
+    </bean>
+
+    <bean id="sqlSession" class="org.mybatis.spring.SqlSessionTemplate">
+        <!--只能使用构造器注入sqlSessionFactory，因为它没有set方法-->
+        <constructor-arg index="0" ref="sqlSessionFactory"/>
+    </bean>
+```
+
+
+
+```java
+    @Test
+    public void test(){
+        ApplicationContext context = new ClassPathXmlApplicationContext("applicationContext.xml");
+        UserMapper userMapper = context.getBean("userMapper", UserMapper.class);
+
+        for (User user : userMapper.selectUser()) {
+            System.out.println(user);
+        }
+    }
+```
+
+
+
+
+
+## 声明式事务
+
+
+
+### 事务回顾
+
++ 要么都成功 要么都失败 涉及到数据的一致性问题
+
+
+
+事务的ACID原则：
+
++ 原子性
++ 一致性
++ 隔离性
+  + 多个业务可能操作同一个资源，防止数据损坏
++ 持久性
+  + 事务一旦提交，无论系统发生什么问题，结果都不会再被影响，被持久化的写到存储器中
+
+
+
+
+
+### Spring中的事务管理
+
++ 声明式事务 AOP
+
+
+
++ 编程式事务 需在代码中进行事务的管理
+
+
+
+如果不配置事务，可能会存在数据提交不一致的情况
+
+如果不再Spring中去配置声明式事务，就需要再代码中手动配置事务
+
+```xml
+    <!--结合AOP实现事务的注入-->
+    <!--配置事务通知-->
+    <tx:advice id="txAdvice" transaction-manager="transactionManager">
+        <!--给哪些方法配置事务-->
+        <!--配置事务的传播特性 new-->
+        <tx:attributes>
+            <tx:method name="add" propagation="REQUIRED"/>
+            <tx:method name="delete" propagation="REQUIRED"/>
+            <tx:method name="update" propagation="REQUIRED"/>
+            <tx:method name="query" read-only="true"/>
+        </tx:attributes>
+    </tx:advice>
+    
+    <!--配置事务切入-->
+    <aop:config>
+        <aop:pointcut id="txPointCut" expression="execution(* com.lk.mapper.*.*(..))"/>
+        <aop:advisor advice-ref="txAdvice" pointcut-ref="txPointCut"/>
+    </aop:config>
+```
+
